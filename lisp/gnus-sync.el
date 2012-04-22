@@ -175,17 +175,35 @@ and `gnus-topic-alist'.  Also see `gnus-variable-list'."
       "gnus-sync-lesync-parse: Could not read the LeSync response!")
      nil)))
 
+(defun gnus-sync-lesync-auth-header (url)
+  "Create a basic auth header if the user has a valid auth
+source for the URL."
+    (let* ((url (url-generic-parse-url url))
+           (credentials (car (auth-source-search :host (url-host url)
+                                                 :port (url-port url)))))
+      (destructuring-bind (&key host user secret port &allow-other-keys)
+          credentials
+        (let ((basic-auth (when (and user secret)
+                            (concat "Basic "
+                                    (base64-encode-string
+                                     (format "%s:%s" user (funcall secret)))))))
+          (when basic-auth (cons "Authorization" basic-auth))))))
+
+
 (defun gnus-sync-lesync-call (url method headers &optional kvdata)
   "Make an access request to URL using KVDATA and METHOD.
 KVDATA must be an alist."
   (flet ((json-alist-p (list) (gnus-sync-json-alist-p list))) ; temp patch
-    (let ((url-request-method method)
-          (url-request-extra-headers headers)
-          (url-request-data (if kvdata (json-encode kvdata) nil)))
+    (let* ((url-request-method method)
+           (auth-header (gnus-sync-lesync-auth-header url))
+           (url-request-extra-headers (if auth-header
+                                         (cons auth-header headers)
+                                       headers))
+           (url-request-data (if kvdata (json-encode kvdata) nil)))
       (with-current-buffer (url-retrieve-synchronously url)
         (let ((data (gnus-sync-lesync-parse)))
           (gnus-message 12 "gnus-sync-lesync-call: %s URL %s sent %S got %S"
-                        method url `((headers . ,headers) (data ,kvdata)) data)
+                        method url `((headers . ,url-request-extra-headers) (data ,kvdata)) data)
           (kill-buffer (current-buffer))
           data)))))
 
