@@ -426,19 +426,21 @@ Updates `gnus-sync-lesync-props-hash'."
 
 ; (json-encode (gnus-sync-range2invlist '((1 . 47137) (47139 . 47714) 48129 48211 49231 49281 49342 49473 49475 49502)))
 (defun gnus-sync-range2invlist (ranges)
-  (append '(invlist)
-          (let ((ranges (delq nil ranges))
-                ret range from to)
-            (while ranges
-              (setq range (pop ranges))
-              (if (atom range)
-                  (setq from range
-                        to range)
-                (setq from (car range)
-                      to (cdr range)))
-              (push from ret)
-              (push (1+ to) ret))
-            (reverse ret))))
+  (let ((ranges (if (listp (cdr ranges))
+                    ranges (list ranges))))
+    (append '(invlist)
+            (let ((ranges (delq nil ranges))
+                  ret range from to)
+              (while ranges
+                (setq range (pop ranges))
+                (if (atom range)
+                    (setq from range
+                          to range)
+                  (setq from (car range)
+                        to (cdr range)))
+                (push from ret)
+                (push (1+ to) ret))
+              (reverse ret)))))
 
 ; (let* ((d '((1 . 47137) (47139 . 47714) 48129 48211 49231 49281 49342 49473 49475 49502)) (j (format "%S" (gnus-sync-invlist2range (gnus-sync-range2invlist d))))) (or (equal (format "%S" d) j) j))
 (defun gnus-sync-invlist2range (inv)
